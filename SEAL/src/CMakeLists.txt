@@ -333,16 +333,16 @@ else()
 endif()
 
 # Create SEALNet.nuspec from SEALNet.nuspec.in
-configure_file(
-    ${SEAL_SOURCE_DIR}/../../dotnet/nuget/SEALNet.nuspec.in
-    ${SEAL_SOURCE_DIR}/../../dotnet/nuget/SEALNet.nuspec
-    @ONLY)
+#configure_file(
+#    ${SEAL_SOURCE_DIR}/../../dotnet/nuget/SEALNet.nuspec.in
+#    ${SEAL_SOURCE_DIR}/../../dotnet/nuget/SEALNet.nuspec
+#    @ONLY)
 
 # Create SEALNet.targets from SEALNet.targets.in
-configure_file(
-    ${SEAL_SOURCE_DIR}/../../dotnet/nuget/SEALNet.targets.in
-    ${SEAL_SOURCE_DIR}/../../dotnet/nuget/SEALNet.targets
-    @ONLY)
+#configure_file(
+#    ${SEAL_SOURCE_DIR}/../../dotnet/nuget/SEALNet.targets.in
+#    ${SEAL_SOURCE_DIR}/../../dotnet/nuget/SEALNet.targets
+#    @ONLY)
 
 # Create library but add no source files yet
 if(SEAL_LIB_BUILD_TYPE STREQUAL "Shared")
