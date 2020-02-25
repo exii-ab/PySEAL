@@ -308,7 +308,7 @@ def example_bfv_basics():
     print("then compute and relinearize x_plus_one_sq ((x+1)^2).")
     evaluator.add_plain(x_encrypted, plain_one, x_plus_one)
     evaluator.square(x_plus_one, x_plus_one_sq)
-    print("    + size of x_plus_one_sq: ".format(x_plus_one_sq.size()))
+    print("    + size of x_plus_one_sq: {}".format(x_plus_one_sq.size()))
     evaluator.relinearize_inplace(x_plus_one_sq, relin_keys)
     print("    + noise budget in x_plus_one_sq: {} bits".format(
         decryptor.invariant_noise_budget(x_plus_one_sq)) )
