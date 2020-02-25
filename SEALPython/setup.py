@@ -8,7 +8,7 @@ for key, value in cfg_vars.items():
     if type(value) == str:
         cfg_vars[key] = value.replace('-Wstrict-prototypes', '')
 
-cpp_args = ['-std=c++11']
+cpp_args = ['-std=c++17', '-fPIC']
 
 ext_modules = [
     Extension(
@@ -23,8 +23,8 @@ ext_modules = [
 
 setup(
     name='seal',
-    version='2.3',
-    author='Todd Stavish, Shashwat Kishore', 
+    version='3.4.5',
+    author='Todd Stavish, Shashwat Kishore, Andre Bertolace', 
     author_email='toddstavish@gmail.com',
     description='Python wrapper for SEAL',
     ext_modules=ext_modules,
