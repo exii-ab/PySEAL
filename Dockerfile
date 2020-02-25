@@ -6,6 +6,7 @@ MAINTAINER Todd Stavish <toddstavish@gmail.com>
 
 # Install binary dependencies
 RUN apt-get -qqy update && apt-get install -qqy \
+    	gcc \
 	g++ \
 	git \
 	make \
@@ -21,7 +22,7 @@ RUN apt-get -qqy update && apt-get install -qqy \
 RUN mkdir -p SEAL/
 COPY /SEAL/ /SEAL/
 WORKDIR /SEAL/src/
-RUN cmake . -DSEAL_LIB_BUILD_TYPE=Static -DCMAKE_BUILD_TYPE=Release
+RUN cmake . -DSEAL_LIB_BUILD_TYPE=Dynamic -DCMAKE_BUILD_TYPE=Release
 RUN make
 ENV LD_LIBRARY_PATH SEAL/lib:$LD_LIBRARY_PATH
 
