@@ -14,4 +14,4 @@ docker run -d \
 popd > /dev/null
 
 sleep 2
-open "http://localhost:$port" &
+#open "http://localhost:$port" &
