@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/stl_bind.h>
 #include <pybind11/stl.h>
 #include "seal/util/defines.h"
 #include "seal/biguint.h"
@@ -31,6 +32,13 @@ namespace py = pybind11;
 using namespace pybind11::literals;
 using namespace seal;
 using namespace std;
+
+PYBIND11_MAKE_OPAQUE(std::vector<int>);
+PYBIND11_MAKE_OPAQUE(std::vector<uint32_t>);
+PYBIND11_MAKE_OPAQUE(std::vector<int64_t>);
+PYBIND11_MAKE_OPAQUE(std::vector<uint64_t>);
+PYBIND11_MAKE_OPAQUE(std::vector<double>);
+PYBIND11_MAKE_OPAQUE(std::vector<std::complex<double>>);
 
 /*
 Helper function: Prints the parameters in a SEALContext.
@@ -95,6 +103,19 @@ void print_parameters(std::shared_ptr<seal::SEALContext> context)
 
 PYBIND11_MODULE(seal, m) {
 
+  /************** AUXILIARY FUNCTIONS ********************/
+  m.def("print_parameters", &print_parameters);
+  /*******************************************************/
+
+  /************** VECTOR BINDING ********************/
+  py::bind_vector<std::vector<int>>(m, "IntVector");
+  py::bind_vector<std::vector<uint32_t>>(m, "UInt32Vector");
+  py::bind_vector<std::vector<int64_t>>(m, "Int64Vector");
+  py::bind_vector<std::vector<uint64_t>>(m, "UInt64Vector");
+  py::bind_vector<std::vector<double>>(m, "DoubleVector");
+  py::bind_vector<std::vector<std::complex<double>>>(m, "ComplexVector");
+  /**************************************************/
+
   /***************** ENUMS ***********************/
   py::enum_<scheme_type>(m, "scheme_type")
     .value("none", scheme_type::none)
@@ -116,10 +137,6 @@ PYBIND11_MODULE(seal, m) {
     .value("THREAD_LOCAL", mm_prof_opt::FORCE_THREAD_LOCAL)
     .export_values();
   /************************************************/
-
-  /************** AUXILIARY FUNCTIONS ********************/
-  m.def("print_parameters", &print_parameters);
-  /*******************************************************/
 
   /***************** Memory manager and pool handler ***********************/
   py::class_<MemoryPoolHandle>(m, "MemoryPoolHandle")
@@ -292,16 +309,22 @@ PYBIND11_MODULE(seal, m) {
 	 "Returns the ContextData corresponding to encryption parameters with a given \
         parms_id. If parameters with the given parms_id are not found then the\
         function returns nullptr.")
-    .def("key_context_data", &SEALContext::key_context_data,
+    .def("key_context_data", (std::shared_ptr<SEALContext>(SEALContext::*)()) &SEALContext::key_context_data,
 	"Returns the ContextData corresponding to encryption parameters that are \
         used for keys. ")
-    .def("first_context_data", &SEALContext::first_context_data,
+    .def("first_context_data", (std::shared_ptr<SEALContext>(SEALContext::*)()) &SEALContext::first_context_data,
         "Returns the ContextData corresponding to the first encryption parameters \
         that are used for data.")
-    .def("last_context_data", &SEALContext::last_context_data,
+    .def("last_context_data", (std::shared_ptr<SEALContext>(SEALContext::*)()) &SEALContext::last_context_data,
 	 "Returns the ContextData corresponding to the last encryption parameters \
         that are used for data.")
-    .def("parameters_set", &SEALContext::parameters_set, "Returns whether the encryption parameters are valid.")
+    .def("parameters_set", (std::shared_ptr<SEALContext>(SEALContext::*)()) &SEALContext::parameters_set,
+	 "Returns whether the encryption parameters are valid.")
+    .def("qualifiers", (EncryptionParameterQualifiers (SEALContext::*)()) &SEALContext::qualifiers,
+	 "Returns a copy of EncryptionParameterQualifiers corresponding to the \
+           current encryption parameters. Note that to change the qualifiers it is \
+           necessary to create a new instance of SEALContext once appropriate changes \
+           to the encryption parameters have been made.")
     .def("key_parms_id", &SEALContext::key_parms_id, "Returns a parms_id_type corresponding to the set of encryption \
         parameters that are used for keys.")
     .def("first_parms_id", &SEALContext::first_parms_id, "Returns a parms_id_type corresponding to the first encryption \
@@ -313,6 +336,15 @@ PYBIND11_MODULE(seal, m) {
         Evaluator::apply_galois, and all rotation and conjugation operations. For \
         keyswitching to be available, the coefficient modulus parameter must consist \
         of at least two prime number factors.");
+
+  py::class_<EncryptionParameterQualifiers>(m, "EncryptionParameterQualifiers")
+    .def_readonly("parameters_set", &EncryptionParameterQualifiers::parameters_set)
+    .def_readonly("using_fft", &EncryptionParameterQualifiers::using_fft)
+    .def_readonly("using_ntt", &EncryptionParameterQualifiers::using_ntt)
+    .def_readonly("using_batching", &EncryptionParameterQualifiers::using_batching)
+    .def_readonly("using_fast_plain_lift", &EncryptionParameterQualifiers::using_fast_plain_lift)
+    .def_readonly("using_descending_modulus_chain", &EncryptionParameterQualifiers::using_descending_modulus_chain)
+    .def_readonly("sec_level", &EncryptionParameterQualifiers::sec_level);
   /*****************************************************/
 
   /***************** KeyGenerator ***********************/
@@ -411,9 +443,11 @@ PYBIND11_MODULE(seal, m) {
     .def(py::init<const Ciphertext &, MemoryPoolHandle>(),
 	 "copy"_a, "pool"_a=MemoryManager::GetPool())
     .def("size", (std::size_t (Ciphertext::*) ()) &Ciphertext::size,
-	 "Returns the size of the ciphertext.");
-    
-
+	 "Returns the size of the ciphertext.")
+    .def("scale", (double & (Ciphertext::*) ()) &Ciphertext::scale,
+	 "Returns a reference to the scale. This is only needed when using the \
+        CKKS encryption scheme. The user should have little or no reason to ever \
+        change the scale by hand.");
   /*****************************************************/
 
   /***************** Encryptor ***********************/
@@ -727,7 +761,210 @@ PYBIND11_MODULE(seal, m) {
 					     Ciphertext &, MemoryPoolHandle)) &Evaluator::complex_conjugate,
 	 "", 
 	 "encrypted"_a, "steps"_a, "galois_keys"_a, "destination"_a, "pool"_a=MemoryManager::GetPool());
-   /*****************************************************/
+  /*****************************************************/
+
+  /************* Encoders *****************************/
+  py::class_<IntegerEncoder>(m, "IntegerEncoder")
+    .def(py::init<std::shared_ptr<SEALContext>>())
+    .def("encode", (Plaintext (IntegerEncoder::*)(std::uint64_t)) &IntegerEncoder::encode,
+  	 "Encodes an unsigned integer (represented by std::uint64_t) into a plaintext polynomial.",
+	 "value"_a)
+    .def("encode", (void (IntegerEncoder::*)(std::uint64_t, Plaintext &)) &IntegerEncoder::encode,
+  	 "Encodes an unsigned integer (represented by std::uint64_t) into a plaintext polynomial.",
+	 "value"_a, "destination"_a)
+    .def("decode_uint64", (std::uint64_t (IntegerEncoder::*)(const Plaintext &)) &IntegerEncoder::decode_uint64,
+	 "decodes a plaintext polynomial and returns the result as std::uint64_t.\
+        mathematically this amounts to evaluating the input polynomial at x=2.",
+  	 "plain"_a)
+    .def("encode", (Plaintext (IntegerEncoder::*)(std::uint32_t)) &IntegerEncoder::encode,
+  	 "Encodes an unsigned integer (represented by std::uint32_t) into a plaintext polynomial.",
+	 "value"_a)
+    .def("encode", (void (IntegerEncoder::*)(std::uint32_t, Plaintext &)) &IntegerEncoder::encode,
+  	 "Encodes an unsigned integer (represented by std::uint32_t) into a plaintext polynomial.",
+	 "value"_a, "destination"_a)
+    .def("decode_uint32", (std::uint32_t (IntegerEncoder::*)(const Plaintext &)) &IntegerEncoder::decode_uint32,
+	 "decodes a plaintext polynomial and returns the result as std::uint32_t.\
+        mathematically this amounts to evaluating the input polynomial at x=2.",
+  	 "plain"_a)
+     .def("encode", (Plaintext (IntegerEncoder::*)(const BigUInt &)) &IntegerEncoder::encode,
+  	 "Encodes an unsigned integer (represented by BigUInt) into a plaintext polynomial.",
+	 "value"_a)
+    .def("encode", (void (IntegerEncoder::*)(const BigUInt &, Plaintext &)) &IntegerEncoder::encode,
+  	 "Encodes an unsigned integer (represented by BigUInt) into a plaintext polynomial.",
+	 "value"_a, "destination"_a)
+    .def("decode_biguint", (BigUInt (IntegerEncoder::*)(const Plaintext &)) &IntegerEncoder::decode_uint64,
+	 "decodes a plaintext polynomial and returns the result as BigUInt.\
+        mathematically this amounts to evaluating the input polynomial at x=2.",
+  	 "plain"_a)
+    .def("encode", (Plaintext (IntegerEncoder::*)(std::int64_t)) &IntegerEncoder::encode,
+  	 "Encodes an unsigned integer (represented by std::int64_t) into a plaintext polynomial.",
+	 "value"_a)
+    .def("encode", (void (IntegerEncoder::*)(std::int64_t, Plaintext &)) &IntegerEncoder::encode,
+  	 "Encodes an unsigned integer (represented by std::int64_t) into a plaintext polynomial.",
+	 "value"_a, "destination"_a)
+    .def("decode_int64", (std::int64_t (IntegerEncoder::*)(const Plaintext &)) &IntegerEncoder::decode_int64,
+	 "decodes a plaintext polynomial and returns the result as std::int64_t.\
+        mathematically this amounts to evaluating the input polynomial at x=2.",
+  	 "plain"_a)
+    .def("encode", (Plaintext (IntegerEncoder::*)(std::int32_t)) &IntegerEncoder::encode,
+  	 "Encodes an unsigned integer (represented by std::uint32_t) into a plaintext polynomial.",
+	 "value"_a)
+    .def("encode", (void (IntegerEncoder::*)(std::int32_t, Plaintext &)) &IntegerEncoder::encode,
+  	 "Encodes an unsigned integer (represented by std::uint32_t) into a plaintext polynomial.",
+	 "value"_a, "destination"_a)
+    .def("decode_int32", (std::int32_t (IntegerEncoder::*)(const Plaintext &)) &IntegerEncoder::decode_int32,
+	 "decodes a plaintext polynomial and returns the result as std::uint32_t.\
+        mathematically this amounts to evaluating the input polynomial at x=2.",
+  	 "plain"_a);
+
+  py::class_<BatchEncoder>(m, "BatchEncoder")
+    .def(py::init<std::shared_ptr<SEALContext>>())
+     .def("encode", (void (BatchEncoder::*)(const std::vector<uint64_t> &, Plaintext &)) &BatchEncoder::encode,
+     	 "Creates a plaintext from a given matrix. This function 'batches' a given matrix \
+         of integers modulo the plaintext modulus into a plaintext element, and stores \
+         the result in the destination parameter. The input vector must have size at most equal \
+         to the degree of the polynomial modulus. The first half of the elements represent the \
+         first row of the matrix, and the second half represent the second row. The numbers \
+         in the matrix can be at most equal to the plaintext modulus for it to represent \
+         a valid plaintext.\
+         If the destination plaintext overlaps the input values in memory, the behavior of \
+         this function is undefined."
+        "values"_a, "destination"_a)
+    .def("encode", (void (BatchEncoder::*)(const std::vector<int64_t> &, Plaintext &)) &BatchEncoder::encode,
+	 "Creates a plaintext from a given matrix. This function 'batches' a given matrix \
+        of integers modulo the plaintext modulus into a plaintext element, and stores \
+        the result in the destination parameter. The input vector must have size at most equal \
+        to the degree of the polynomial modulus. The first half of the elements represent the \
+        first row of the matrix, and the second half represent the second row. The numbers \
+        in the matrix can be at most equal to the plaintext modulus for it to represent \
+        a valid plaintext.\
+        If the destination plaintext overlaps the input values in memory, the behavior of \
+        this function is undefined."
+	 "values"_a, "destination"_a)
+     .def("encode", (void (BatchEncoder::*)(Plaintext &, MemoryPoolHandle)) &BatchEncoder::encode,
+	 "Creates a plaintext from a given matrix. This function 'batches' a given matrix \
+        of integers modulo the plaintext modulus in-place into a plaintext ready to be \
+        encrypted. The matrix is given as a plaintext element whose first N/2 coefficients \
+        represent the first row of the matrix, and the second N/2 coefficients represent the \
+        second row, where N denotes the degree of the polynomial modulus. The input plaintext \
+        must have degress less than the polynomial modulus, and coefficients less than the \
+        plaintext modulus, i.e. it must be a valid plaintext for the encryption parameters. \
+        Dynamic memory allocations in the process are allocated from the memory pool pointed \
+        to by the given MemoryPoolHandle.",
+	 "plain"_a, "pool"_a=MemoryManager::GetPool())
+     .def("decode", (void (BatchEncoder::*)(const Plaintext &, std::vector<uint64_t> &,
+     					   MemoryPoolHandle)) &BatchEncoder::decode,
+     	 "Inverse of encode. This function 'unbatches' a given plaintext into a matrix \
+         of integers modulo the plaintext modulus, and stores the result in the destination \
+         parameter. The input plaintext must have degress less than the polynomial modulus, \
+         and coefficients less than the plaintext modulus, i.e. it must be a valid plaintext \
+         for the encryption parameters. Dynamic memory allocations in the process are \
+         allocated from the memory pool pointed to by the given MemoryPoolHandle.",
+    	 "plain"_a, "destination"_a, "pool"_a=MemoryManager::GetPool())
+    .def("decode", (void (BatchEncoder::*)(const Plaintext &, std::vector<int64_t> &,
+					   MemoryPoolHandle)) &BatchEncoder::decode,
+	 "Inverse of encode. This function 'unbatches' a given plaintext into a matrix \
+        of integers modulo the plaintext modulus, and stores the result in the destination \
+        parameter. The input plaintext must have degress less than the polynomial modulus, \
+        and coefficients less than the plaintext modulus, i.e. it must be a valid plaintext \
+        for the encryption parameters. Dynamic memory allocations in the process are \
+        allocated from the memory pool pointed to by the given MemoryPoolHandle.",
+	 "plain"_a, "destination"_a, "pool"_a=MemoryManager::GetPool())
+    .def("decode", (void (BatchEncoder::*)(Plaintext &, MemoryPoolHandle)) &BatchEncoder::decode,
+	 "Inverse of encode. This function 'unbatches' a given plaintext in-place into \
+        a matrix of integers modulo the plaintext modulus. The input plaintext must have \
+        degress less than the polynomial modulus, and coefficients less than the plaintext \
+        modulus, i.e. it must be a valid plaintext for the encryption parameters. Dynamic \
+        memory allocations in the process are allocated from the memory pool pointed to by \
+        the given MemoryPoolHandle.",
+	 "plain"_a, "pool"_a=MemoryManager::GetPool())
+    .def("slot_count", (std::size_t (BatchEncoder::*)()) &BatchEncoder::slot_count,
+	 "Returns the number of slots");
+
+
+  py::class_<CKKSEncoder>(m, "CKKSEncoder")
+    .def(py::init<std::shared_ptr<SEALContext>>())
+    .def("encode", (void (CKKSEncoder::*)(const std::vector<double> &, parms_id_type,
+					  double, Plaintext &, MemoryPoolHandle)) &CKKSEncoder::encode,
+	 "Encodes a vector of double-precision floating-point real or complex numbers \
+        into a plaintext polynomial. Append zeros if vector size is less than N/2. \
+        Dynamic memory allocations in the process are allocated from the memory \
+        pool pointed to by the given MemoryPoolHandle.",
+	 "values"_a, "parms_id"_a, "scale"_a, "destination"_a, "pool"_a=MemoryManager::GetPool())
+    .def("encode", (void (CKKSEncoder::*)(const std::vector<std::complex<double>> &, parms_id_type,
+					  double, Plaintext &, MemoryPoolHandle)) &CKKSEncoder::encode,
+	 "Encodes a vector of double-precision floating-point real or complex numbers \
+        into a plaintext polynomial. Append zeros if vector size is less than N/2. \
+        Dynamic memory allocations in the process are allocated from the memory \
+        pool pointed to by the given MemoryPoolHandle.",
+	 "values"_a, "parms_id"_a, "scale"_a, "destination"_a, "pool"_a=MemoryManager::GetPool())
+    .def("encode", (void (CKKSEncoder::*)(const std::vector<double> &, double,
+					  Plaintext &, MemoryPoolHandle)) &CKKSEncoder::encode,
+	 "Encodes a vector of double-precision floating-point real or complex numbers \
+        into a plaintext polynomial. Append zeros if vector size is less than N/2. \
+        The encryption parameters used are the top level parameters for the given \
+        context. Dynamic memory allocations in the process are allocated from the \
+        memory pool pointed to by the given MemoryPoolHandle.",
+	 "values"_a, "scale"_a, "destination"_a, "pool"_a=MemoryManager::GetPool())
+    .def("encode", (void (CKKSEncoder::*)(const std::vector<std::complex<double>> &, double,
+					  Plaintext &, MemoryPoolHandle)) &CKKSEncoder::encode,
+	 "Encodes a vector of double-precision floating-point real or complex numbers \
+        into a plaintext polynomial. Append zeros if vector size is less than N/2. \
+        The encryption parameters used are the top level parameters for the given \
+        context. Dynamic memory allocations in the process are allocated from the \
+        memory pool pointed to by the given MemoryPoolHandle.",
+	 "values"_a, "scale"_a, "destination"_a, "pool"_a=MemoryManager::GetPool())
+    .def("encode", (void (CKKSEncoder::*)(double, parms_id_type, double,
+					  Plaintext &, MemoryPoolHandle)) &CKKSEncoder::encode,
+	 "Encodes a double-precision floating-point real number into a plaintext \
+        polynomial. The number repeats for N/2 times to fill all slots. Dynamic \
+        memory allocations in the process are allocated from the memory pool \
+        pointed to by the given MemoryPoolHandle.",
+	 "value"_a, "parms_id"_a, "scale"_a, "destination"_a, "pool"_a=MemoryManager::GetPool())
+    .def("encode", (void (CKKSEncoder::*)(double, double,
+					  Plaintext &, MemoryPoolHandle)) &CKKSEncoder::encode,
+	  "Encodes a double-precision floating-point real number into a plaintext \
+        polynomial. The number repeats for N/2 times to fill all slots. The \
+        encryption parameters used are the top level parameters for the given \
+        context. Dynamic memory allocations in the process are allocated from \
+        the memory pool pointed to by the given MemoryPoolHandle.",
+	  "value"_a, "scale"_a, "destination"_a, "pool"_a=MemoryManager::GetPool())
+    .def("encode", (void (CKKSEncoder::*)(std::complex<double>, parms_id_type, double,
+					  Plaintext &, MemoryPoolHandle)) &CKKSEncoder::encode,
+	 "Encodes a double-precision complex number into a plaintext polynomial. \
+        Append zeros to fill all slots. Dynamic memory allocations in the process \
+        are allocated from the memory pool pointed to by the given MemoryPoolHandle.",
+	 "value"_a, "parms_id"_a, "scale"_a, "destination"_a, "pool"_a=MemoryManager::GetPool())
+    .def("encode", (void (CKKSEncoder::*)(std::complex<double>, double,
+					  Plaintext &, MemoryPoolHandle)) &CKKSEncoder::encode,
+	 "Encodes a double-precision complex number into a plaintext polynomial. \
+        Append zeros to fill all slots. The encryption parameters used are the \
+        top level parameters for the given context. Dynamic memory allocations \
+        in the process are allocated from the memory pool pointed to by the \
+        given MemoryPoolHandle.",
+	  "value"_a, "scale"_a, "destination"_a, "pool"_a=MemoryManager::GetPool())
+    .def("encode", (void (CKKSEncoder::*)(std::int64_t, parms_id_type, Plaintext &)) &CKKSEncoder::encode,
+	 "Encodes an integer number into a plaintext polynomial without any scaling. \
+        The number repeats for N/2 times to fill all slots.",
+	 "value"_a, "parms_id"_a, "destination"_a)
+    .def("encode", (void (CKKSEncoder::*)(std::int64_t, Plaintext &)) &CKKSEncoder::encode,
+	 "Encodes an integer number into a plaintext polynomial without any scaling. \
+        The number repeats for N/2 times to fill all slots. The encryption \
+        parameters used are the top level parameters for the given context.",
+	 "value"_a, "destination"_a)
+    .def("decode", (void (CKKSEncoder::*)(const Plaintext &, std::vector<double> &, 
+					  MemoryPoolHandle)) &CKKSEncoder::decode,
+	 "Decodes a plaintext polynomial into double-precision floating-point \
+        real or complex numbers. Dynamic memory allocations in the process are \
+        allocated from the memory pool pointed to by the given MemoryPoolHandle.",
+	 "plain"_a, "destination"_a, "pool"_a=MemoryManager::GetPool())
+    .def("decode", (void (CKKSEncoder::*)(const Plaintext &, std::vector<std::complex<double>> &, 
+					  MemoryPoolHandle)) &CKKSEncoder::decode,
+	 "Decodes a plaintext polynomial into double-precision floating-point \
+        real or complex numbers. Dynamic memory allocations in the process are \
+        allocated from the memory pool pointed to by the given MemoryPoolHandle.",
+	 "plain"_a, "destination"_a, "pool"_a=MemoryManager::GetPool())
+    .def("slot_count", (std::size_t (CKKSEncoder::*)()) &CKKSEncoder::slot_count,
+	 "Returns the number of complex numbers encoded.");
 
 }
-
