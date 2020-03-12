@@ -305,37 +305,63 @@ PYBIND11_MODULE(seal, m) {
 	 "Creates an instance of SEALContext and performs several pre-computations \
          on the given EncryptionParameters.",
 		"parms"_a, "expand_mod_chain"_a=true, "sec_level"_a=sec_level_type::tc128)
-    .def("get_context_data", (std::shared_ptr<SEALContext>(SEALContext::*)(parms_id_type)) &SEALContext::get_context_data,
+    .def("get_context_data", (std::shared_ptr<SEALContext::ContextData>(SEALContext::*)(parms_id_type) const)
+	 &SEALContext::get_context_data,
 	 "Returns the ContextData corresponding to encryption parameters with a given \
         parms_id. If parameters with the given parms_id are not found then the\
         function returns nullptr.")
-    .def("key_context_data", (std::shared_ptr<SEALContext>(SEALContext::*)()) &SEALContext::key_context_data,
+    .def("key_context_data", (std::shared_ptr<SEALContext::ContextData>(SEALContext::*)() const) &SEALContext::key_context_data,
 	"Returns the ContextData corresponding to encryption parameters that are \
         used for keys. ")
-    .def("first_context_data", (std::shared_ptr<SEALContext>(SEALContext::*)()) &SEALContext::first_context_data,
+    .def("first_context_data", (std::shared_ptr<SEALContext::ContextData>(SEALContext::*)() const) &SEALContext::first_context_data,
         "Returns the ContextData corresponding to the first encryption parameters \
         that are used for data.")
-    .def("last_context_data", (std::shared_ptr<SEALContext>(SEALContext::*)()) &SEALContext::last_context_data,
+    .def("last_context_data", (std::shared_ptr<SEALContext::ContextData>(SEALContext::*)() const) &SEALContext::last_context_data,
 	 "Returns the ContextData corresponding to the last encryption parameters \
         that are used for data.")
-    .def("parameters_set", (std::shared_ptr<SEALContext>(SEALContext::*)()) &SEALContext::parameters_set,
+    .def("parameters_set", (std::shared_ptr<SEALContext::ContextData>(SEALContext::*)() const) &SEALContext::parameters_set,
 	 "Returns whether the encryption parameters are valid.")
-    .def("qualifiers", (EncryptionParameterQualifiers (SEALContext::*)()) &SEALContext::qualifiers,
+    .def("qualifiers", (EncryptionParameterQualifiers (SEALContext::*)() const) &SEALContext::qualifiers,
 	 "Returns a copy of EncryptionParameterQualifiers corresponding to the \
            current encryption parameters. Note that to change the qualifiers it is \
            necessary to create a new instance of SEALContext once appropriate changes \
            to the encryption parameters have been made.")
-    .def("key_parms_id", &SEALContext::key_parms_id, "Returns a parms_id_type corresponding to the set of encryption \
-        parameters that are used for keys.")
-    .def("first_parms_id", &SEALContext::first_parms_id, "Returns a parms_id_type corresponding to the first encryption \
-        parameters that are used for data.")
-    .def("last_parms_id", &SEALContext::last_parms_id, "Returns a parms_id_type corresponding to the last encryption \
-        parameters that are used for data.")
-    .def("using_keyswitching", &SEALContext::using_keyswitching, "Returns whether the coefficient modulus supports \
-        keyswitching. In practice, support for keyswitching is required by Evaluator::relinearize, \
-        Evaluator::apply_galois, and all rotation and conjugation operations. For \
-        keyswitching to be available, the coefficient modulus parameter must consist \
-        of at least two prime number factors.");
+    .def("key_parms_id", (parms_id_type& (SEALContext::*)() const) &SEALContext::key_parms_id,
+			  "Returns a parms_id_type corresponding to the set of encryption \
+                            parameters that are used for keys.")
+    .def("first_parms_id", (parms_id_type& (SEALContext::*)() const) &SEALContext::first_parms_id,
+	 "Returns a parms_id_type corresponding to the first encryption \
+          parameters that are used for data.")
+    .def("last_parms_id", (parms_id_type& (SEALContext::*)() const) &SEALContext::last_parms_id,
+	 "Returns a parms_id_type corresponding to the last encryption \
+          parameters that are used for data.")
+    .def("using_keyswitching", (bool (SEALContext::*)() const) &SEALContext::using_keyswitching,
+	 "Returns whether the coefficient modulus supports \
+          keyswitching. In practice, support for keyswitching is required by Evaluator::relinearize, \
+          Evaluator::apply_galois, and all rotation and conjugation operations. For \
+          keyswitching to be available, the coefficient modulus parameter must consist \
+          of at least two prime number factors.");
+
+  py::class_<SEALContext::ContextData, std::shared_ptr<SEALContext::ContextData>>(m, "ContextData")
+    .def("parms", (EncryptionParameters& (SEALContext::ContextData::*)() const noexcept) &SEALContext::ContextData::parms,
+	 "Returns a const reference to the underlying encryption parameters.")
+    .def("parms_id", (parms_id_type& (SEALContext::ContextData::*)() const noexcept) &SEALContext::ContextData::parms_id,
+	 "Returns the parms_id of the current parameters.")
+    .def("qualifiers", (EncryptionParameterQualifiers (SEALContext::ContextData::*)() const noexcept)
+	 &SEALContext::ContextData::qualifiers,
+	 "Returns a copy of EncryptionParameterQualifiers corresponding to the \
+            current encryption parameters. Note that to change the qualifiers it is \
+            necessary to create a new instance of SEALContext once appropriate changes \
+            to the encryption parameters have been made.")
+    .def("chain_index", (std::size_t (SEALContext::ContextData::*)() const noexcept) &SEALContext::ContextData::chain_index,
+	 "Returns the index of the parameter set in a chain. The initial parameters \
+            have index 0 and the index increases sequentially in the parameter chain.")
+    .def("next_context_data", (std::shared_ptr<const SEALContext::ContextData>(SEALContext::ContextData::*)() const noexcept)
+	 &SEALContext::ContextData::next_context_data,
+	 "Returns a shared_ptr to the context data corresponding to the next parameters \
+            in the modulus switching chain. If the current data is the last one in the \
+            chain, then the result is nullptr.");
+    
 
   py::class_<EncryptionParameterQualifiers>(m, "EncryptionParameterQualifiers")
     .def_readonly("parameters_set", &EncryptionParameterQualifiers::parameters_set)
@@ -357,24 +383,40 @@ PYBIND11_MODULE(seal, m) {
     .def("public_key", (const PublicKey& (KeyGenerator::*)() const) &KeyGenerator::public_key,
 	 "Returns a const reference to the public key.")
     .def("relin_keys", (RelinKeys (KeyGenerator::*)()) &KeyGenerator::relin_keys,
-	 "Generates and returns relinearization keys.");
+	 "Generates and returns relinearization keys.")
+    .def("galois_keys", (GaloisKeys (KeyGenerator::*)()) &KeyGenerator::galois_keys,
+	 "Generates and returns Galois keys. This function creates logarithmically \
+        many (in degree of the polynomial modulus) Galois keys that is sufficient \
+        to apply any Galois automorphism (e.g. rotations) on encrypted data. Most \
+        users will want to use this overload of the function.");
 
-  py::class_<RelinKeys>(m, "RelinKeys")
+  py::class_<KSwitchKeys>(m, "KSwitchKeys")
+    .def(py::init<>())
+    .def("parms_id", (parms_id_type& (KSwitchKeys::*)() noexcept) &KSwitchKeys::parms_id,
+	 "Returns a reference to parms_id.");
+
+  py::class_<RelinKeys, KSwitchKeys>(m, "RelinKeys")
     .def_static("get_index", (std::size_t (*)(std::size_t)) &RelinKeys::get_index,
 		" Returns the index of a relinearization key in the backing KSwitchKeys \
         instance that corresponds to the given secret key power, assuming that \
         it exists in the backing KSwitchKeys.", 
 		"key_power"_a);
+
+  py::class_<GaloisKeys, KSwitchKeys>(m, "GaloisKeys");
  
   /*****************************************************/
 
   /***************** Public and private keys ***********************/
   py::class_<PublicKey>(m, "PublicKey")
     .def(py::init<>())
-    .def(py::init<PublicKey &>());
+    .def(py::init<PublicKey &>())
+    .def("parms_id", (parms_id_type& (PublicKey::*)() noexcept) &PublicKey::parms_id,
+	 "Returns a reference to parms_id.");
   py::class_<SecretKey>(m, "SecretKey")
     .def(py::init<>())
-    .def(py::init<SecretKey &>());
+    .def(py::init<SecretKey &>())
+    .def("parms_id", (parms_id_type& (SecretKey::*)() noexcept) &SecretKey::parms_id,
+	 "Returns a reference to parms_id.");
 
   /*****************************************************************/
 
@@ -428,7 +470,9 @@ PYBIND11_MODULE(seal, m) {
         just a hexadecimal number without x or exponent\
         7. Terms are separated exactly by <space>+<space>\
         8. Other than the +, no other terms have whitespace\
-        9. If the polynomial is exactly 0, the string '0' is returned");
+        9. If the polynomial is exactly 0, the string '0' is returned")
+    .def("parms_id", (parms_id_type& (Plaintext::*)() noexcept) &Plaintext::parms_id,
+	 "Returns a reference to parms_id.");
   /*****************************************************/
 
   /***************** Ciphertext ***********************/
@@ -447,7 +491,9 @@ PYBIND11_MODULE(seal, m) {
     .def("scale", (double & (Ciphertext::*) ()) &Ciphertext::scale,
 	 "Returns a reference to the scale. This is only needed when using the \
         CKKS encryption scheme. The user should have little or no reason to ever \
-        change the scale by hand.");
+        change the scale by hand.")
+    .def("parms_id", (parms_id_type& (Ciphertext::*)() noexcept) &Ciphertext::parms_id,
+	 "Returns a reference to parms_id.");
   /*****************************************************/
 
   /***************** Encryptor ***********************/
