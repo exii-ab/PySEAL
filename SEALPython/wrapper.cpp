@@ -472,7 +472,11 @@ PYBIND11_MODULE(seal, m) {
         8. Other than the +, no other terms have whitespace\
         9. If the polynomial is exactly 0, the string '0' is returned")
     .def("parms_id", (parms_id_type& (Plaintext::*)() noexcept) &Plaintext::parms_id,
-	 "Returns a reference to parms_id.");
+	 "Returns a reference to parms_id.")
+    .def("scale", (double & (Plaintext::*) ()) &Plaintext::scale,
+	 "Returns a reference to the scale. This is only needed when using the CKKS \
+        encryption scheme. The user should have little or no reason to ever change \
+        the scale by hand.");
   /*****************************************************/
 
   /***************** Ciphertext ***********************/
@@ -492,6 +496,8 @@ PYBIND11_MODULE(seal, m) {
 	 "Returns a reference to the scale. This is only needed when using the \
         CKKS encryption scheme. The user should have little or no reason to ever \
         change the scale by hand.")
+    .def("set_scale", (void (Ciphertext::*) (double)) &Ciphertext::set_scale,
+        "Sets the scale of a Ciphertext")
     .def("parms_id", (parms_id_type& (Ciphertext::*)() noexcept) &Ciphertext::parms_id,
 	 "Returns a reference to parms_id.");
   /*****************************************************/
