@@ -91,7 +91,6 @@ def example_bfv_basics():
     #
     #which returns std::vector<SmallModulus> consisting of a generally good choice
     #for the given poly_modulus_degree.
-    #### TODO COEFMODULUS #####
     parms.set_coeff_modulus(CoeffModulus.BFVDefault(poly_modulus_degree))
 
     #The plaintext modulus can be any positive integer, even though here we take
@@ -119,7 +118,7 @@ def example_bfv_basics():
 
     #Print the parameters that we have chosen.
     print("Set encryption parameters and print")
-    print_parameters(context) #TODO: FIX
+    print_parameters(context)
     print("~~~~~~ A naive way to calculate 4(x^2+1)(x+1)^2. ~~~~~~")
 
     #The encryption schemes in Microsoft SEAL are public key encryption schemes.

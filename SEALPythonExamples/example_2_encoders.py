@@ -62,7 +62,7 @@ def example_integer_encoder():
     #larger coefficients: 2x^4 + 2x^3 + 2x^1. Squaring the encrypted encoded
     #integer 26 results also in increased coefficients due to cross-terms, namely,
     #
-    #    (1x^4 + 1x^3 + 1x^1)^2 = 1x^8 + 2x^7 + 1x^6 + 2x^5 + 2x^4 + 1x^2;
+    #    (2x^4 + 2x^3 + 2x^1)^2 = 1x^8 + 2x^7 + 1x^6 + 2x^5 + 2x^4 + 1x^2;
     #
     #further computations will quickly increase the coefficients much more.
     #Decoding will still work correctly in this case (evaluating the polynomial
