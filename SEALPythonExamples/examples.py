@@ -1,6 +1,7 @@
 from example_1_bfv_basics import example_bfv_basics
 from example_2_encoders import example_integer_encoder, example_batch_encoder, example_ckks_encoder
 from example_3_levels import example_levels
+from example_4_ckks_basics import example_ckks_basics
 
 if __name__ == '__main__':
     print("=================== Running example 1: BFV Basics ====================")
@@ -11,3 +12,5 @@ if __name__ == '__main__':
     example_ckks_encoder()
     print("=================== Running example 3: Levels ====================")
     example_levels()
+    print("=================== Running example 4: CKKS basics ====================")
+    example_ckks_basics()
