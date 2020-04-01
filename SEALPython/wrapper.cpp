@@ -39,6 +39,7 @@ PYBIND11_MAKE_OPAQUE(std::vector<int64_t>);
 PYBIND11_MAKE_OPAQUE(std::vector<uint64_t>);
 PYBIND11_MAKE_OPAQUE(std::vector<double>);
 PYBIND11_MAKE_OPAQUE(std::vector<std::complex<double>>);
+PYBIND11_MAKE_OPAQUE(std::vector<Ciphertext>);
 
 /*
 Helper function: Prints the parameters in a SEALContext.
@@ -114,6 +115,7 @@ PYBIND11_MODULE(seal, m) {
   py::bind_vector<std::vector<uint64_t>>(m, "UInt64Vector");
   py::bind_vector<std::vector<double>>(m, "DoubleVector");
   py::bind_vector<std::vector<std::complex<double>>>(m, "ComplexVector");
+  py::bind_vector<std::vector<Ciphertext>>(m, "CiphertextVector");
   /**************************************************/
 
   /***************** ENUMS ***********************/
@@ -360,7 +362,9 @@ PYBIND11_MODULE(seal, m) {
 	 &SEALContext::ContextData::next_context_data,
 	 "Returns a shared_ptr to the context data corresponding to the next parameters \
             in the modulus switching chain. If the current data is the last one in the \
-            chain, then the result is nullptr.");
+            chain, then the result is nullptr.")
+    .def("total_coeff_modulus_bit_count", (int (SEALContext::ContextData::*)() const noexcept) &SEALContext::ContextData::total_coeff_modulus_bit_count,
+	 "Returns the significant bit count of the total coefficient modulus");
     
 
   py::class_<EncryptionParameterQualifiers>(m, "EncryptionParameterQualifiers")
